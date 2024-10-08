@@ -1,9 +1,20 @@
+# this is not a HTML document. It is R code saved with the file extension of an .HTML format. If you connect RStudio with GitHub, just open a .Rmd file that you knit. In this way, you will have both .rmd and .html
+
 read.table('/Users/germayne/Desktop/test-wd2/data/rairuoho.txt', header=T, sep='\t', dec='.')
-rairuoho<-read.table('/Users/germayne/Desktop/test-wd2/data/rairuoho.txt', header=T, sep='\t', dec='.')
+rairuoho<-read.table('/Users/germayne/Desktop/test-wd2/data/rairuoho.txt', header=T, sep='\t', dec='_') # try importing url
+
+#url <- "https://www.dipintothereef.com/uploads/3/7/3/5/37359245/rairuoho.txt"
+#data <- read.csv(url, header = TRUE, sep = "\t")
+#data
+
+  
 rairuoho
 library('tidyr')
-rairuoho <- rename(rairuoho, 
-                   enriched = nutrient)
+
+ rairuoho <- rename(rairuoho, 
+                   enriched = nutrient) # Error in `rename()`
+
+# below is good 
 library('tidyr')
 rairuoho <- rairuoho %>%
   mutate(treatment = ifelse(treatment == 'nutrient', 'enriched', treatment))
