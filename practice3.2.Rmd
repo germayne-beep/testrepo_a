@@ -1,0 +1,63 @@
+
+plants <- c('plant 1','plant 2','plant 3','plant 4','plant 5')
+time.exp<- c('start_experiment', 'end_experiment')
+height<- c(4.0,5,3,6,7,9,6,5,4,7.0)
+my.matrix<-matrix(height,5,2)
+my.table<-data.frame (my.matrix, row.names=plants)
+colnames(my.table)<-time.exp
+my.table
+str(my.table)
+typeof(time.exp)
+typeof(height)
+typeof(plants) #why is plants not a variable according to str(my.table)... plants is not part of matrix, row.names was used to create plants... 
+#how about using title <-c('plants', 'time','height') colnames(my.table_long)<-title
+#but will plant number data appear??
+
+
+
+#use pivot_ longer , see tut 4 notes
+library(dplyr)
+library(tidyr)
+
+##my.table_long <- my.table %>%
+##pivot_longer(start_experiment:end_experiment, names_to = "time of measurement", values_to = "height")
+##my.table_long
+#make factor
+##time <- as.factor("time of measurement")
+##class(time)
+# OR as.factor(time.exp) before pivot_longer ?? OR embed as.factor into my.table_long
+
+my.table_long <- pivot_longer(my.table, start_experiment:end_experiment, names_to = "time", values_to = "height")
+my.table_long
+my.table_long$time <- factor(my.table_long$time, levels = c("start_experiment", "end_experiment"))
+my.table_long
+str(my.table_long)
+
+
+#how to bring back plants? add column?
+##my.table_long <- my.table_long %>%
+##  mutate(plant_number = plants)
+
+# actually, first element does not require plant column,,, but then this first element's data becomes pointless...
+
+#TRY THIS add rownames as hinted by practice3.2 prompt?
+
+#how to link plant 1 to 4 for start and 9 for end, and so on?
+
+# Creating the list with required elements
+
+growth <- list(
+  row_names = rownames(my.table),
+  change_in_height = ((my.table_long$height - my.table_long$start_experiment) / my.table_long$start_experiment) * 100,
+  plants_growth_table = data.frame(plants = my.table_long$plants, growth = ((my.table_long$height - my.table_long$start_experiment) / my.table_long$start_experiment) * 100))
+  
+growth
+#change_in_height and plants_growth_table doesn't seem to work...^
+
+my.experiment <- list(initial_data = my.table_long, growth = growth, growth_status_message = "The plants have shown significant growth over the experimental period.")
+my.experiment
+
+##my.experiment <- list(my.table_long = my.table_long, growth = growth, C = C)
+
+my.table
+
