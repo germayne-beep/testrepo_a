@@ -5,7 +5,6 @@ date: "2024-11-04"
 output: html_document
 ---
 
-'I still don't know how to fix the projection problem'
 
 ```{r}
 library('rgbif')
@@ -50,6 +49,11 @@ points(gbif_oriole$decimalLongitude, gbif_oriole$decimalLatitude, col='darkred',
 title("Distribution of the Maroon Oriole in Taiwan")
 
 ```
+
+---
+"The Maroon Oriole inhabits lower and middle elevations of montane forests."
+---
+
 
 ##merge map data and bird data, and include ele, legend, different country zones, fix the projection problem
 #transform raster to vector!!! to fix projection
