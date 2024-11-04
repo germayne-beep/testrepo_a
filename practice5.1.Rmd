@@ -1,0 +1,61 @@
+---
+title: "practice5.1"
+author: "germayne"
+date: "2024-11-04"
+output: html_document
+---
+
+'I still don't know how to fix the projection problem'
+
+```{r}
+library('rgbif')
+library('maps')
+library('terra')
+library('geodata')
+
+
+TWN <- gadm(country="TWN", level=1, path=tempdir())
+TWN <- gadm(country="TWN", level=1, path="./data")
+
+TWN <- vect('data/gadm/gadm41_TWN_1_pk.rds')
+TWN
+
+outfile1 <- "data/shp_TWN.shp"
+writeVector(TWN, outfile1, overwrite=TRUE)
+
+ele <-elevation_30s("TWN", path=tempdir()) 
+
+ele
+x <- writeRaster(ele, "data/ele.tif", overwrite=TRUE) 
+
+x
+head(ele) 
+
+gbif_oriole <- occ_search(scientificName = "Oriolus traillii", hasCoordinate=T, basisOfRecord='HUMAN_OBSERVATION', limit = 1000) 
+gbif_oriole <- gbif_oriole$data
+gbif_oriole
+head(gbif_oriole)
+
+
+ele <- raster::raster('data/ele.tif')
+maps::map('world', 
+          fill=TRUE,
+          col=colorRampPalette(c('green','orange','yellow'))(100), 
+          xlim=c(119,123),
+          ylim=c(21,26))
+
+raster::plot(ele, add=TRUE) 
+lines(TWN, lwd=.5)
+points(gbif_oriole$decimalLongitude, gbif_oriole$decimalLatitude, col='darkred',  pch=20)
+title("Distribution of the Maroon Oriole in Taiwan")
+
+```
+
+##merge map data and bird data, and include ele, legend, different country zones, fix the projection problem
+#transform raster to vector!!! to fix projection
+#oriole data is ___
+#ele data is raster.....
+#To transform a SpatRaster to another coordinate reference system (projection) you can use the project function.
+
+
+
