@@ -1,0 +1,67 @@
+---
+title: "practice7.4"
+author: "germayne"
+date: "2024-11-18"
+output: html_document
+---
+
+
+my pearson.test function: 
+
+```{r}
+library (psych)
+library (tidyverse)
+library(gridExtra)
+library(car)
+library(ggpubr)
+library(rstatix)
+rairuoho <- read.table('/Users/germayne/testrepo_a/rairuoho.txt', header = TRUE, sep = "\t", dec = ".")
+x<-rairuoho$day3
+y<-rairuoho$day4
+z<-rairuoho$day8
+x1<- subset(rairuoho, treatment == "water")$day3
+x2<- subset(rairuoho, treatment == "nutrient")$day3
+y1<- subset(rairuoho, treatment == "water")$day4
+y2<- subset(rairuoho, treatment == "nutrient")$day4
+z1<- subset(rairuoho, treatment == "water")$day8
+z2<- subset(rairuoho, treatment == "nutrient")$day8
+
+
+# pearson test function for day3 and day4, nutrient
+pearson.test <- function(x, y) {
+  cor_val <- cor(x, y, method = "pearson")  # Calculate Pearson correlation coefficient
+  n <- length(x)
+  t_val <- cor_val * sqrt((n - 2) / (1 - cor_val^2))  # Calculate t-statistic
+  df <- n - 2  # Degrees of freedom
+  p_val <- 2 * pt(abs(t_val), df, lower.tail = FALSE)  # Calculate two-tailed p-value
+  result <- list(correlation = cor_val, p_value = p_val)
+  return(result)
+}
+
+pearson.test(x,y)
+
+pearson.test(x,z)
+
+pearson.test(x,y)
+
+pearson.test(x1,y1) #water; day3 vs day4
+pearson.test(x2, y2) #nutrient; day3 vs day4
+pearson.test(x1, z1) #water; day3 vs day8
+pearson.test(x2,z2) #nutrient; day3 vs day8
+
+
+
+```
+
+intepretation of results:
+
+for day3 and day4, the correlation is stronger than with day3 and day8 in general. This could be due to the longer time between day3 and day8, which allows for more chances for changes in developmental growth, as compared to the short span of time between day3 and day4, which are consecutive days
+
+the p-values for day3 and day4 are smaller than for day3 and day8, thus this indicates a greater confidence in correlation for day3 and day4
+
+
+
+
+
+
+
