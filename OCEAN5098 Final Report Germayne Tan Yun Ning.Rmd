@@ -1,0 +1,869 @@
+---
+title: "OCEAN5098 Final Report"
+author: "Germayne Tan Yun Ning T13605101"
+date: "2024-12-16"
+output: 
+  html_document:
+      theme: "sandstone"
+      toc: true
+      toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, results = 'hide', message = FALSE)
+```
+### **Introduction**
+In this report, I attempt to break down and analyse various datasets and codes from the research article "Drought and aridity influence internal migration worldwide" by Roman Hoffmann, Guy Abel, Maurizio Malpede, Raya Muttarak and Marco Percoco.
+
+It is difficult to define drought severity with a single indicator, thus different indicators of aridity are analysed in the aforementioned article, namely the UNEP Aridity Index (AI), Palmer drought severity index (PDSI), and standardized precipitation evapotranspiration index (SPEI) measured over a 3 month (SPEI03) and 12 month (SPEI12) time frame. 
+
+
+
+The main questions I aim to answer are: 
+
+**1.  Does educational level and the country's level of development affect migration response, in light of increasing aridity and drought?**
+
+**2. On a broader scale, how has aridity affected migration globally?**
+
+**3. How does migration response differ globally, between SPEI12 (short-term) and SPEI03 (shorter-term) conditions?**
+
+Perhaps this will help us better understand the prevailing "push" factors for migration, and also the motives behind individuals' migration. 
+
+
+
+### **Methodology**
+
+Using R Studio, data from Harvard Dataverse repository was analysed: https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/QVLBGN&version=1.1#
+
+
+### **Results**
+
+### Comparing the Migration Impacts due to Aridity and Severe Drought, across Educational Levels and Country's Development Levels
+
+
+Set up:
+
+```{r, echo=TRUE, results = 'hide'}
+
+rm(list=ls())
+
+
+library(tidyverse)
+library(fixest)
+library(ggpubr)
+
+
+load(file="full migration data.RData")
+
+str(d.sexedu)
+
+# mig_interval is the Time interval of migration data collection (referring to past 5 or 1 year)
+#filtering the data in the data frame d.sexedu. It is keeping only the rows where the column mig_interval does not equal 10. This means that rows where mig_interval is 10 will be removed from d.sexedu.
+d.sexedu <- d.sexedu %>% filter(mig_interval != 10)
+
+#> restricting data to cases for which we have observations for all sex/age groups (exclude NA.)
+#> The subsequent block of code is further filtering the d.sexedu data frame. It is ensuring that the data is restricted to cases where there are no missing values in specific columns related to flow out rates for different educational levels and genders.
+d.sexedu <- d.sexedu %>% 
+  filter(!is.na(flow_out_rate_annual_femalelessprimary)&
+           !is.na(flow_out_rate_annual_femaleprimary)&
+           !is.na(flow_out_rate_annual_femalesecondary)&
+           !is.na(flow_out_rate_annual_femaletertiary)&
+           !is.na(flow_out_rate_annual_malelessprimary)&
+           !is.na(flow_out_rate_annual_maleprimary)&
+           !is.na(flow_out_rate_annual_malesecondary)&
+           !is.na(flow_out_rate_annual_maletertiary))
+```
+
+
+Combining migrating females and males of same educational level together:
+```{r, echo=TRUE, results = 'hide'}
+
+d.sexedu <- d.sexedu %>%
+  mutate(flow_out_rate_annual_combinedlessprimary  = flow_out_rate_annual_femalelessprimary  + flow_out_rate_annual_malelessprimary )
+
+d.sexedu$flow_out_rate_annual_combinedlessprimary 
+
+d.sexedu <- d.sexedu %>%
+  mutate(flow_out_rate_annual_combinedprimary  = flow_out_rate_annual_femaleprimary  + flow_out_rate_annual_maleprimary )
+
+d.sexedu$flow_out_rate_annual_combinedprimary 
+
+d.sexedu <- d.sexedu %>%
+  mutate(flow_out_rate_annual_combinedsecondary  = flow_out_rate_annual_femalesecondary  + flow_out_rate_annual_malesecondary )
+
+d.sexedu$flow_out_rate_annual_combinedsecondary
+
+d.sexedu <- d.sexedu %>%
+  mutate(flow_out_rate_annual_combinedtertiary  = flow_out_rate_annual_femaletertiary  + flow_out_rate_annual_maletertiary )
+
+d.sexedu$flow_out_rate_annual_combinedtertiary 
+```
+
+
+Poisson binomial fixed-effect estimations for LESS DEVELOPED COUNTRIES:
+```{r, echo=TRUE, results = 'hide'}
+
+aux1 <- d.sexedu %>% filter(grp_un_develop=="Less")
+
+#> include only region-region pairs that are also covered in the main migration dataset
+aux1 <- aux1 %>% filter(include==1)
+
+
+##COMBINED (FEMALE AND MALE), EDUCATION, AI (less):
+
+m_combinedlessprimary_ai_less <-  fepois(flow_out_rate_annual_combinedlessprimary ~ 
+                                         orig_ai_mean10_stan1+dest_ai_mean10_stan1+
+                                         worldregion*as.factor(year_cat10)+
+                                         log(dist)+contig+as.factor(mig_interval),
+                                       fixef = c("orig_dest_dyad"),cluster=c("orig_dest_dyad"),
+                                       data=aux1)
+
+m_combinedprimary_ai_less <-  fepois(flow_out_rate_annual_combinedprimary ~ 
+                                     orig_ai_mean10_stan1+dest_ai_mean10_stan1+
+                                     worldregion*as.factor(year_cat10)+
+                                     log(dist)+contig+as.factor(mig_interval),
+                                   fixef = c("orig_dest_dyad"),cluster=c("orig_dest_dyad"),
+                                   data=aux1)
+
+m_combinedsecondary_ai_less <-  fepois(flow_out_rate_annual_combinedsecondary ~ 
+                                       orig_ai_mean10_stan1+dest_ai_mean10_stan1+
+                                       worldregion*as.factor(year_cat10)+
+                                       log(dist)+contig+as.factor(mig_interval),
+                                     fixef = c("orig_dest_dyad"),cluster=c("orig_dest_dyad"),
+                                     data=aux1)
+
+m_combinedtertiary_ai_less <-  fepois(flow_out_rate_annual_combinedtertiary ~ 
+                                       orig_ai_mean10_stan1+dest_ai_mean10_stan1+
+                                       worldregion*as.factor(year_cat10)+
+                                       log(dist)+contig+as.factor(mig_interval),
+                                     fixef = c("orig_dest_dyad"),cluster=c("orig_dest_dyad"),
+                                     data=aux1)
+
+##COMBINED (FEMALE AND MALE), EDUCATION, PDSI (less):
+m_combinedlessprimary_pdsi_less <-  fepois(flow_out_rate_annual_combinedlessprimary ~ 
+                                           orig_pdsi_mean10_stan1+dest_pdsi_mean10_stan1+
+                                           worldregion*as.factor(year_cat10)+
+                                           log(dist)+contig+as.factor(mig_interval),
+                                         fixef = c("orig_dest_dyad"),cluster=c("orig_dest_dyad"),
+                                         data=aux1)
+
+m_combinedprimary_pdsi_less <-  fepois(flow_out_rate_annual_combinedprimary~ 
+                                       orig_pdsi_mean10_stan1+dest_pdsi_mean10_stan1+
+                                       worldregion*as.factor(year_cat10)+
+                                       log(dist)+contig+as.factor(mig_interval),
+                                     fixef = c("orig_dest_dyad"),cluster=c("orig_dest_dyad"),
+                                     data=aux1)
+
+m_combinedsecondary_pdsi_less <-  fepois(flow_out_rate_annual_combinedsecondary~ 
+                                         orig_pdsi_mean10_stan1+dest_pdsi_mean10_stan1+
+                                         worldregion*as.factor(year_cat10)+
+                                         log(dist)+contig+as.factor(mig_interval),
+                                       fixef = c("orig_dest_dyad"),cluster=c("orig_dest_dyad"),
+                                       data=aux1)
+
+m_combinedtertiary_pdsi_less <-  fepois(flow_out_rate_annual_combinedtertiary ~ 
+                                        orig_pdsi_mean10_stan1+dest_pdsi_mean10_stan1+
+                                        worldregion*as.factor(year_cat10)+
+                                        log(dist)+contig+as.factor(mig_interval),
+                                      fixef = c("orig_dest_dyad"),cluster=c("orig_dest_dyad"),
+                                      data=aux1)
+```
+
+
+Poisson binomial fixed-effect estimations for MORE DEVELOPED COUNTRIES:
+```{r, echo=TRUE, results = 'hide'}
+
+
+aux2 <- d.sexedu %>% filter(grp_un_develop=="More")
+
+#> include only region-region pairs that are also covered in the main migration dataset
+aux2 <- aux2 %>% filter(include==1)
+
+
+##COMBINED (FEMALE AND MALE), EDUCATION, AI (more):
+
+m_combinedlessprimary_ai_more <-  fepois(flow_out_rate_annual_combinedlessprimary ~ 
+                                         orig_ai_mean10_stan1+dest_ai_mean10_stan1+
+                                         worldregion*as.factor(year_cat10)+
+                                         log(dist)+contig+as.factor(mig_interval),
+                                       fixef = c("orig_dest_dyad"),cluster=c("orig_dest_dyad"),
+                                       data=aux2)
+
+
+m_combinedprimary_ai_more <-  fepois(flow_out_rate_annual_combinedprimary ~ 
+                                     orig_ai_mean10_stan1+dest_ai_mean10_stan1+
+                                     worldregion*as.factor(year_cat10)+
+                                     log(dist)+contig+as.factor(mig_interval),
+                                   fixef = c("orig_dest_dyad"),cluster=c("orig_dest_dyad"),
+                                   data=aux2)
+
+
+m_combinedsecondary_ai_more <-  fepois(flow_out_rate_annual_combinedsecondary~ 
+                                       orig_ai_mean10_stan1+dest_ai_mean10_stan1+
+                                       worldregion*as.factor(year_cat10)+
+                                       log(dist)+contig+as.factor(mig_interval),
+                                     fixef = c("orig_dest_dyad"),cluster=c("orig_dest_dyad"),
+                                     data=aux2)
+
+
+m_combinedtertiary_ai_more <-  fepois(flow_out_rate_annual_combinedtertiary ~ 
+                                      orig_ai_mean10_stan1+dest_ai_mean10_stan1+
+                                      worldregion*as.factor(year_cat10)+
+                                      log(dist)+contig+as.factor(mig_interval),
+                                    fixef = c("orig_dest_dyad"),cluster=c("orig_dest_dyad"),
+                                    data=aux2)
+
+
+##COMBINED (FEMALE AND MALE), EDUCATION, PDSI (more):
+
+m_combinedlessprimary_pdsi_more <-  fepois(flow_out_rate_annual_combinedlessprimary ~ 
+                                           orig_pdsi_mean10_stan1+
+                                           worldregion*as.factor(year_cat10)+
+                                           log(dist)+contig+as.factor(mig_interval),
+                                         fixef = c("orig_dest_dyad"),cluster=c("orig_dest_dyad"),
+                                         data=aux2)                                   
+                                   
+m_combinedprimary_pdsi_more <-  fepois(flow_out_rate_annual_combinedprimary~ 
+                                       orig_pdsi_mean10_stan1+
+                                       worldregion*as.factor(year_cat10)+
+                                       log(dist)+contig+as.factor(mig_interval),
+                                     fixef = c("orig_dest_dyad"),cluster=c("orig_dest_dyad"),
+                                     data=aux2) 
+
+m_combinedsecondary_pdsi_more <-  fepois(flow_out_rate_annual_combinedsecondary~ 
+                                         orig_pdsi_mean10_stan1+
+                                         worldregion*as.factor(year_cat10)+
+                                         log(dist)+contig+as.factor(mig_interval),
+                                       fixef = c("orig_dest_dyad"),cluster=c("orig_dest_dyad"),
+                                       data=aux2)
+
+m_combinedtertiary_pdsi_more <-  fepois(flow_out_rate_annual_combinedtertiary ~ 
+                                        orig_pdsi_mean10_stan1+
+                                        worldregion*as.factor(year_cat10)+
+                                        log(dist)+contig+as.factor(mig_interval),
+                                      fixef = c("orig_dest_dyad"),cluster=c("orig_dest_dyad"),
+                                      data=aux2)                                    
+```
+      
+      
+Filter and create a new dataframe for AI and PDSI respectively, which includes the upper and lower bound of confidence intervals:
+```{r, echo=TRUE, results = 'hide'}
+
+
+## aridity, combined, LESS DEVELOPED--------------------------------------------------------------
+
+
+envindicator <- "orig_ai_mean10_stan1"
+
+
+m.sum <- summary(m_combinedlessprimary_ai_less, se = "cluster")
+m.coef <- as.data.frame(m.sum$coeftable)
+m.coef <- rownames_to_column(m.coef, "name")
+m.coef <- m.coef[grep(envindicator, m.coef$name), ]
+m.coef <- m.coef[1,]
+m.coef_combinedlessprimary_ai_less <- m.coef %>% 
+  rename("SE"="Std. Error") %>% 
+  mutate(coef = Estimate ,
+         ci_up = coef + 1.64*SE ,
+         ci_low= coef - 1.64*SE , 
+         edu = "< primary",
+        # sex = "female", 
+         aridity = "AI",
+         developed = "Less developed")
+
+m.sum <- summary(m_combinedprimary_ai_less, se = "cluster")
+m.coef <- as.data.frame(m.sum$coeftable)
+m.coef <- rownames_to_column(m.coef, "name")
+m.coef <- m.coef[grep(envindicator, m.coef$name), ]
+m.coef <- m.coef[1,]
+m.coef_combinedprimary_ai_less <- m.coef %>% 
+  rename("SE"="Std. Error") %>% 
+  mutate(coef = Estimate ,
+         ci_up = coef + 1.64*SE ,
+         ci_low= coef - 1.64*SE , 
+         edu = "primary",
+        # sex = "female", 
+         aridity = "AI",
+         developed = "Less developed")
+
+m.sum <- summary(m_combinedsecondary_ai_less, se = "cluster")
+m.coef <- as.data.frame(m.sum$coeftable)
+m.coef <- rownames_to_column(m.coef, "name")
+m.coef <- m.coef[grep(envindicator, m.coef$name), ]
+m.coef <- m.coef[1,]
+m.coef_combinedsecondary_ai_less <- m.coef %>% 
+  rename("SE"="Std. Error") %>% 
+  mutate(coef = Estimate ,
+         ci_up = coef + 1.64*SE ,
+         ci_low= coef - 1.64*SE , 
+         edu = "secondary",
+       #  sex = "female", 
+         aridity = "AI",
+         developed = "Less developed")
+
+m.sum <- summary(m_combinedtertiary_ai_less, se = "cluster")
+m.coef <- as.data.frame(m.sum$coeftable)
+m.coef <- rownames_to_column(m.coef, "name")
+m.coef <- m.coef[grep(envindicator, m.coef$name), ]
+m.coef <- m.coef[1,]
+m.coef_combinedtertiary_ai_less <- m.coef %>% 
+  rename("SE"="Std. Error") %>% 
+  mutate(coef = Estimate ,
+         ci_up = coef + 1.64*SE ,
+         ci_low= coef - 1.64*SE , 
+         edu = "tertiary",
+      #   sex = "female", 
+         aridity = "AI",
+         developed = "Less developed")
+
+
+
+## pdsi, combined, LESS DEVELOPED---------------------------------------------------------------------
+
+envindicator <- "orig_pdsi_mean10_stan"
+
+
+m.sum <- summary(m_combinedlessprimary_pdsi_less, se = "cluster")
+m.coef <- as.data.frame(m.sum$coeftable)
+m.coef <- rownames_to_column(m.coef, "name")
+m.coef <- m.coef[grep(envindicator, m.coef$name), ]
+m.coef <- m.coef[1,]
+m.coef_combinedlessprimary_pdsi_less <- m.coef %>% 
+  rename("SE"="Std. Error") %>% 
+  mutate(coef = Estimate ,
+         ci_up = coef + 1.64*SE ,
+         ci_low= coef - 1.64*SE , 
+         edu = "< primary",
+        # sex = "female", 
+          aridity = "PDSI",
+         developed = "Less developed")
+
+m.sum <- summary(m_combinedprimary_pdsi_less, se = "cluster")
+m.coef <- as.data.frame(m.sum$coeftable)
+m.coef <- rownames_to_column(m.coef, "name")
+m.coef <- m.coef[grep(envindicator, m.coef$name), ]
+m.coef <- m.coef[1,]
+m.coef_combinedprimary_pdsi_less <- m.coef %>% 
+  rename("SE"="Std. Error") %>% 
+  mutate(coef = Estimate ,
+         ci_up = coef + 1.64*SE ,
+         ci_low= coef - 1.64*SE , 
+         edu = "primary",
+       #  sex = "female", 
+          aridity = "PDSI",
+         developed = "Less developed")
+
+m.sum <- summary(m_combinedsecondary_pdsi_less, se = "cluster")
+m.coef <- as.data.frame(m.sum$coeftable)
+m.coef <- rownames_to_column(m.coef, "name")
+m.coef <- m.coef[grep(envindicator, m.coef$name), ]
+m.coef <- m.coef[1,]
+m.coef_combinedsecondary_pdsi_less <- m.coef %>% 
+  rename("SE"="Std. Error") %>% 
+  mutate(coef = Estimate ,
+         ci_up = coef + 1.64*SE ,
+         ci_low= coef - 1.64*SE , 
+         edu = "secondary",
+     #    sex = "female", 
+          aridity = "PDSI",
+         developed = "Less developed")
+
+m.sum <- summary(m_combinedtertiary_pdsi_less, se = "cluster")
+m.coef <- as.data.frame(m.sum$coeftable)
+m.coef <- rownames_to_column(m.coef, "name")
+m.coef <- m.coef[grep(envindicator, m.coef$name), ]
+m.coef <- m.coef[1,]
+m.coef_combinedtertiary_pdsi_less <- m.coef %>% 
+  rename("SE"="Std. Error") %>% 
+  mutate(coef = Estimate ,
+         ci_up = coef + 1.64*SE ,
+         ci_low= coef - 1.64*SE , 
+         edu = "tertiary",
+      #   sex = "female", 
+          aridity = "PDSI",
+         developed = "Less developed")
+
+##
+## aridity, combined, MORE DEVELOPED --------------------------------------------------------------
+## 
+
+
+envindicator <- "orig_ai_mean10_stan1"
+
+
+m.sum <- summary(m_combinedlessprimary_ai_more, se = "cluster")
+m.coef <- as.data.frame(m.sum$coeftable)
+m.coef <- rownames_to_column(m.coef, "name")
+m.coef <- m.coef[grep(envindicator, m.coef$name), ]
+m.coef <- m.coef[1,]
+m.coef_combinedlessprimary_ai_more <- m.coef %>% 
+  rename("SE"="Std. Error") %>% 
+  mutate(coef = Estimate ,
+        
+         ci_up = coef + 1.64*SE ,
+         ci_low= coef - 1.64*SE , 
+         edu = "< primary",
+      #   sex = "female", 
+         aridity = "AI",
+         developed = "More developed")
+
+m.sum <- summary(m_combinedprimary_ai_more, se = "cluster")
+m.coef <- as.data.frame(m.sum$coeftable)
+m.coef <- rownames_to_column(m.coef, "name")
+m.coef <- m.coef[grep(envindicator, m.coef$name), ]
+m.coef <- m.coef[1,]
+m.coef_combinedprimary_ai_more <- m.coef %>% 
+  rename("SE"="Std. Error") %>% 
+  mutate(coef = Estimate ,
+         ci_up = coef + 1.64*SE ,
+         ci_low= coef - 1.64*SE , 
+         edu = "primary",
+       #  sex = "female", 
+         aridity = "AI",
+         developed = "More developed")
+
+m.sum <- summary(m_combinedsecondary_ai_more, se = "cluster")
+m.coef <- as.data.frame(m.sum$coeftable)
+m.coef <- rownames_to_column(m.coef, "name")
+m.coef <- m.coef[grep(envindicator, m.coef$name), ]
+m.coef <- m.coef[1,]
+m.coef_combinedsecondary_ai_more <- m.coef %>% 
+  rename("SE"="Std. Error") %>% 
+  mutate(coef = Estimate ,
+         ci_up = coef + 1.64*SE ,
+         ci_low= coef - 1.64*SE , 
+         edu = "secondary",
+       #  sex = "female", 
+         aridity = "AI",
+         developed = "More developed")
+
+m.sum <- summary(m_combinedtertiary_ai_more, se = "cluster")
+m.coef <- as.data.frame(m.sum$coeftable)
+m.coef <- rownames_to_column(m.coef, "name")
+m.coef <- m.coef[grep(envindicator, m.coef$name), ]
+m.coef <- m.coef[1,]
+m.coef_combinedtertiary_ai_more <- m.coef %>% 
+  rename("SE"="Std. Error") %>% 
+  mutate(coef = Estimate ,
+         ci_up = coef + 1.64*SE ,
+         ci_low= coef - 1.64*SE , 
+         edu = "tertiary",
+      #   sex = "female", 
+         aridity = "AI",
+         developed = "More developed")
+
+
+## pdsi, combined, MORE DEVELOPED ---------------------------------------------------------------------
+
+envindicator <- "orig_pdsi_mean10_stan"
+
+m.sum <- summary(m_combinedlessprimary_pdsi_more, se = "cluster")
+m.coef <- as.data.frame(m.sum$coeftable)
+m.coef <- rownames_to_column(m.coef, "name")
+m.coef <- m.coef[grep(envindicator, m.coef$name), ]
+m.coef <- m.coef[1,]
+m.coef_combinedlessprimary_pdsi_more <- m.coef %>% 
+  rename("SE"="Std. Error") %>% 
+  mutate(coef = Estimate ,
+         ci_up = coef + 1.64*SE ,
+         ci_low= coef - 1.64*SE , 
+         edu = "< primary",
+      #   sex = "female", 
+         aridity = "PDSI",
+         developed = "More developed")
+
+m.sum <- summary(m_combinedprimary_pdsi_more, se = "cluster")
+m.coef <- as.data.frame(m.sum$coeftable)
+m.coef <- rownames_to_column(m.coef, "name")
+m.coef <- m.coef[grep(envindicator, m.coef$name), ]
+m.coef <- m.coef[1,]
+m.coef_combinedprimary_pdsi_more <- m.coef %>% 
+  rename("SE"="Std. Error") %>% 
+  mutate(coef = Estimate ,
+         ci_up = coef + 1.64*SE ,
+         ci_low= coef - 1.64*SE , 
+         edu = "primary",
+       #  sex = "female", 
+         aridity = "PDSI",
+         developed = "More developed")
+
+m.sum <- summary(m_combinedsecondary_pdsi_more, se = "cluster")
+m.coef <- as.data.frame(m.sum$coeftable)
+m.coef <- rownames_to_column(m.coef, "name")
+m.coef <- m.coef[grep(envindicator, m.coef$name), ]
+m.coef <- m.coef[1,]
+m.coef_combinedsecondary_pdsi_more <- m.coef %>% 
+  rename("SE"="Std. Error") %>% 
+  mutate(coef = Estimate ,
+         ci_up = coef + 1.64*SE ,
+         ci_low= coef - 1.64*SE , 
+         edu = "secondary",
+       #  sex = "female", 
+         aridity = "PDSI",
+         developed = "More developed")
+
+m.sum <- summary(m_combinedtertiary_pdsi_more, se = "cluster")
+m.coef <- as.data.frame(m.sum$coeftable)
+m.coef <- rownames_to_column(m.coef, "name")
+m.coef <- m.coef[grep(envindicator, m.coef$name), ]
+m.coef <- m.coef[1,]
+m.coef_combinedtertiary_pdsi_more <- m.coef %>% 
+  rename("SE"="Std. Error") %>% 
+  mutate(coef = Estimate ,
+         ci_up = coef + 1.64*SE ,
+         ci_low= coef - 1.64*SE , 
+         edu = "tertiary",
+       #  sex = "female", 
+         aridity = "PDSI",
+         developed = "More developed")
+
+```
+
+
+Bind everything together:
+```{r, echo=TRUE, results = 'hide'}
+
+m.coef <- rbind(
+  
+  m.coef_combinedlessprimary_ai_less, m.coef_combinedlessprimary_pdsi_less,
+  m.coef_combinedprimary_ai_less  ,   m.coef_combinedprimary_pdsi_less,
+  m.coef_combinedsecondary_ai_less  ,   m.coef_combinedsecondary_pdsi_less  ,
+  m.coef_combinedtertiary_ai_less  ,   m.coef_combinedtertiary_pdsi_less  ,
+
+  m.coef_combinedlessprimary_ai_more, m.coef_combinedlessprimary_pdsi_more,
+  m.coef_combinedprimary_ai_more  ,   m.coef_combinedprimary_pdsi_more,
+  m.coef_combinedsecondary_ai_more  ,   m.coef_combinedsecondary_pdsi_more  ,
+  m.coef_combinedtertiary_ai_more  ,   m.coef_combinedtertiary_pdsi_more  
+)
+
+m.coef <- m.coef %>% 
+  mutate(order = recode(
+    edu, 
+    "< primary" = 1L,
+    "primary" = 2L,
+    "secondary" = 3L,
+    "tertiary" = 4L
+  ))
+
+
+m.coef <- m.coef %>% 
+  mutate(order2 = recode(
+    aridity, 
+    "AI" = 1L,
+    "PDSI" = 2L
+   # "SPEI03" = 3L,
+   # "SPEI12" = 4L,
+  ))
+
+```
+
+
+### Coefficient Plot, Fig.1:
+```{r, echo=TRUE, results = 'hide'}
+
+g2 <- 
+  m.coef %>% 
+  ggplot(aes(x=coef, y=fct_reorder(edu, -order), group="combined female and male", color="combined female and male"))+ # changed from color = sex, group = sex
+  geom_vline(aes(xintercept=0), color="chartreuse", linetype="dashed")+ #changed from color = "Red"
+  geom_pointrange(
+    aes(xmin = ci_low, xmax = ci_up), # , colour = climatic, shape = climatic, fill = climatic
+    position = position_dodge(0.6), 
+    size = 0.6,
+    shape=18#, key_glyph = draw_key_point
+  ) +
+  geom_path(position = position_dodge(0.6), alpha=0.8,  linetype="dashed")+
+  facet_grid(developed~fct_reorder(aridity,order2), space="free_x")+
+  scale_color_manual(name="", values = c("deeppink3"))+ # removed: , "#1aa156"
+  scale_x_continuous(labels=scales::percent)+
+  xlab("Migration Impacts")+ylab("Educational Level")+
+  #ggtitle("(a) Effect differences by world regions")+
+  theme_bw() +
+  ggtitle("")+
+  theme(
+    strip.text = element_text(face = "bold", size=11),
+    strip.background = element_rect(fill = "darkgoldenrod1"),#daebdd
+    legend.position = "bottom",
+    axis.text=element_text(size=11)
+    )+
+  coord_cartesian(xlim=c(-0.1,0.25))
+
+g2
+
+
+```
+
+
+```{r, echo=FALSE, results = 'hide'}
+m.coef.edu <- m.coef
+
+
+save(g2, m.coef.edu, file="figure_differences by edu group.RData")
+ggsave(plot = g2, filename="figure_dot whisker coef plot_effect differences by edu group.png",
+       width=12, height = 4.5)
+
+```
+
+### Comparing Aridity Impacts and SPEI (short-term and long-term) across Regions
+
+Set up:
+```{r, echo=TRUE, results = 'hide'}
+rm(list=ls())
+
+library(tidyverse)
+library(fixest)
+library(ggpubr)
+
+
+load(file="full migration data.RData")
+
+```
+
+
+Poisson binomial fixed-effect estimations for AI, PDSI, SPEI03 and SPEI12:
+
+```{r, echo=TRUE, results = 'hide'}
+
+m1a <-  fepois(flow_out_rate_annual ~ 
+                 orig_ai_mean10_stan1:worldregion +
+                 dest_ai_mean10_stan1+
+                 worldregion*as.factor(year_cat10)+
+                 log(dist)+contig+
+                 as.factor(mig_interval),
+               fixef = c("orig_dest_dyad"),
+               data=d) 
+summary(m1a, se = "cluster")
+
+m2a <-  fepois(flow_out_rate_annual ~ 
+                 orig_pdsi_mean10_stan1:worldregion +
+                 dest_pdsi_mean10_stan1+
+                 worldregion*as.factor(year_cat10)+
+                 log(dist)+contig+
+                 as.factor(mig_interval),
+               fixef = c("orig_dest_dyad"),
+               data=d) 
+summary(m2a, se = "cluster")
+
+m3a <-  fepois(flow_out_rate_annual ~ 
+                 orig_spei03_mean10_stan1:worldregion +
+                 dest_spei03_mean10_stan1+
+                 worldregion*as.factor(year_cat10)+
+                 log(dist)+contig+
+                 as.factor(mig_interval),
+               fixef = c("orig_dest_dyad"),
+               data=d) 
+summary(m3a, se = "cluster")
+
+
+m4a <-  fepois(flow_out_rate_annual ~ 
+                 orig_spei12_mean10_stan1:worldregion +
+                 dest_spei12_mean10_stan1+
+                 worldregion*as.factor(year_cat10)+
+                 log(dist)+contig+
+                 as.factor(mig_interval),
+               fixef = c("orig_dest_dyad"),
+               data=d) 
+summary(m4a, se = "cluster")
+
+models <- etable(m1a,
+                 se="cluster",
+                 coefstat="confint",
+                 ci = 0.9,
+                 keep=c("orig_ai_mean10_stan1","orig_spei12_mean10_stan1",
+                          "orig_spei03_mean10_stan1", "orig_pdsi_mean10_stan1"),
+                 signif.code = c(`***` = 0.01, `**` = 0.05, `*` = 0.1))
+models
+
+models <- etable(m1a, m2a,m3a,m4a,
+                 se="cluster",
+                 ci = 0.9,
+                 signif.code = c(`***` = 0.01, `**` = 0.05, `*` = 0.1),
+                 coefstat = "se")
+models
+write.csv(models, "table_extended models_heterogeneity by regions.csv")
+
+```
+
+Filter and create new dataframes for AI, PDSI, SPEI03 and SPEI12 respectively, which includes the upper and lower bound of confidence intervals:
+```{r, echo=TRUE, results = 'hide'}
+
+m.sum <- summary(m1a, se = "cluster")
+m.coef <- as.data.frame(m.sum$coeftable)
+m.coef <- rownames_to_column(m.coef, "region")
+m.coef <- m.coef[grep("orig_ai_mean10_stan1", m.coef$region), ]
+m.coef$region <- gsub("orig_ai_mean10_stan1", "", m.coef$region)
+m.coef$region <- gsub(":worldregion", "", m.coef$region)
+
+m.coef1 <- m.coef %>% 
+  rename("SE"="Std. Error") %>%  
+  mutate(coef = Estimate ,
+         ci_up = coef + 1.64*SE ,
+         ci_low= coef - 1.64*SE) %>% 
+  mutate("climatic" = "Aridity Index",
+         "order" = 1)
+
+
+m.sum <- summary(m2a, se = "cluster")
+m.coef <- as.data.frame(m.sum$coeftable)
+m.coef <- rownames_to_column(m.coef, "region")
+m.coef <- m.coef[grep("orig_pdsi_mean10_stan1", m.coef$region), ]
+m.coef$region <- gsub("orig_pdsi_mean10_stan1", "", m.coef$region)
+m.coef$region <- gsub(":worldregion", "", m.coef$region)
+
+m.coef2 <- m.coef %>% 
+  rename("SE"="Std. Error") %>% 
+  mutate(coef = Estimate ,
+         ci_up = coef + 1.64*SE ,
+         ci_low= coef - 1.64*SE) %>% 
+  mutate("climatic" = "PDSI",
+         "order" = 2)
+
+
+m.sum <- summary(m3a, se = "cluster")
+m.coef <- as.data.frame(m.sum$coeftable)
+m.coef <- rownames_to_column(m.coef, "region")
+m.coef <- m.coef[grep("orig_spei03_mean10_stan1", m.coef$region), ]
+m.coef$region <- gsub("orig_spei03_mean10_stan1", "", m.coef$region)
+m.coef$region <- gsub(":worldregion", "", m.coef$region)
+
+m.coef3 <- m.coef %>% 
+  rename("SE"="Std. Error") %>% 
+  mutate(coef =Estimate ,
+         ci_up = coef + 1.64*SE ,
+         ci_low= coef - 1.64*SE) %>% 
+  mutate("climatic" = "SPEI03",
+         "order" = 3)
+
+m.sum <- summary(m4a, se = "cluster")
+m.coef <- as.data.frame(m.sum$coeftable)
+m.coef <- rownames_to_column(m.coef, "region")
+m.coef <- m.coef[grep("orig_spei12_mean10_stan1", m.coef$region), ]
+m.coef$region <- gsub("orig_spei12_mean10_stan1", "", m.coef$region)
+m.coef$region <- gsub(":worldregion", "", m.coef$region)
+
+m.coef4 <- m.coef %>% 
+  rename("SE"="Std. Error") %>% 
+  mutate(coef = Estimate ,
+         ci_up = coef + 1.64*SE ,
+         ci_low= coef - 1.64*SE) %>% 
+  mutate("climatic" = "SPEI12",
+         "order" = 4)
+```
+
+
+Bind together:
+```{r, echo=TRUE, results = 'hide'}
+
+m.coef <- rbind(m.coef1, m.coef2, m.coef3, m.coef4)
+
+```
+
+
+Organise dataframe:
+```{r, echo=TRUE, results = 'hide'}
+
+m.coef #from 3a) fig 2 dataset
+
+# Find column indices to remove
+cols_to_remove <- c("SE", "z value", "Pr(>|z|)", "coef", "ci_up", "ci_low", "order")
+
+# Remove columns by indices
+m.coef.new <- m.coef[, -which(names(m.coef) %in% cols_to_remove)]
+
+m.coef.new
+```
+
+Prepare plot comparing AI across regions:
+```{r, echo=TRUE, results = 'hide'}
+
+#exclude PDSI and Aridity Index
+m.coef.new3 <- subset(m.coef.new, climatic != "SPEI03" & climatic != "SPEI12" & climatic != "PDSI")
+
+
+# Create a bar plot for AI
+AIbarplot<- ggplot(m.coef.new3, aes(x = region, y = Estimate, fill = climatic)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Migration Impacts across regions, based on UNEP Aridity Index",
+       x = "Regions",
+       y = "Estimated Migration Impact /%", 
+       fill = "Aridity") +
+  
+  theme_minimal() +
+  
+  theme(
+    text = element_text(size = 12),  # Set the base font size
+    axis.text.x = element_text(size = 10, angle = 45, hjust = 1),  # Adjust x-axis label font size and orientation
+    axis.text.y = element_text(size = 10),  # Adjust y-axis label font size
+    plot.title = element_text(size = 14, face = "bold"),  # Adjust plot title font size and weight
+    legend.text = element_text(size = 10),  # Adjust legend text font size
+    legend.title = element_text(size = 12)  # Adjust legend title font size
+  )
+```
+
+
+### Bar plot, Fig.2:
+```{r, echo=TRUE, results = 'hide'}
+
+AIbarplot
+
+save(AIbarplot, file="figure_AI differences across worldregions.RData")
+```
+
+
+Prepare plot comparing SPEI03 and SPEI12:
+```{r, echo=TRUE, results = 'hide'}
+
+#exclude PDSI and Aridity Index
+m.coef.new2 <- subset(m.coef.new, climatic != "PDSI" & climatic != "Aridity Index")
+
+
+# Create a dual bar plot
+SPEIbarplot<- ggplot(m.coef.new2, aes(x = region, y = Estimate, fill = climatic)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_manual(values = c("SPEI03" = "brown1", "SPEI12" = "brown4")) + 
+  labs(title = "Migration Impacts across regions, in different SPEI contexts",
+       x = "Regions",
+       y = "Estimated Migration Impact /%",
+       fill = "SPEI") +
+  
+  theme_minimal() +
+
+theme(
+  text = element_text(size = 12),  # Set the base font size
+  axis.text.x = element_text(size = 10, angle = 45, hjust = 1),  # Adjust x-axis label font size and orientation
+  axis.text.y = element_text(size = 10),  # Adjust y-axis label font size
+  plot.title = element_text(size = 14, face = "bold"),  # Adjust plot title font size and weight
+  legend.text = element_text(size = 10),  # Adjust legend text font size
+  legend.title = element_text(size = 12)  # Adjust legend title font size
+)
+```
+
+### Bar plot, Fig. 3: 
+```{r, echo=TRUE, results = 'hide'} 
+
+SPEIbarplot
+
+save(SPEIbarplot, file="figure_SPEI03_12 differences across worldregions.RData")
+```
+### **Discussion** 
+ 
+With reference to Fig. 1, in more developed countries, individuals who received less than primary education are more likely to migrate due to the increased effects of aridity and drought occurences. A possible reason could be that individuals which received higher levels of education have a higher chance of securing employment with better pay, which would is associated with a higher standard of living. Higher material standards of living entail better access to amenities, services and goods which help alleviate or provide relief from extreme heat stress. As a result they are more equipped to withstand increasingly severe heat conditions than their counterparts of a lower educational level. On the other hand, individuals who lack primary education may not be able to find suitable housing to shelter them from the harsh weather, or have cooling facilities like fans, refrigerators and air conditioning. They may also lack the means to consult medical services to treat deadly heat-related illnesses. Thus these are all push factors, which would lead to those with less than primary education, to be more significantly affected by aridity and droughts and thus driven towards out-migration. 
+
+Moreover, we see that less-developed, primary to secondary education level has greater migration impacts in both AI and PDSI contexts. In the less-developed countries, other factors may also come into play; aside from escaping from the various impacts of AI and PDSI in their original region (push factor), these individuals may also have other reasons to migrate away, for example, for better work opportunities in cities. This group of individuals who have received primary/secondary education may be more mobile than those who have received less than primary education (who may be restricted to manual labour jobs); they may already earn more than those with less than primary education, and also qualify for white-collar jobs in cities. Thus this would enable greater migration and proper settling down in a new region (less risky too).
+
+As for Fig.2, the region which has the greatest migration impact due to changes in aridity is Southern Europe, followed by South Asia and South America. On the other hand, there is a negative migration impact for Central America & Caribbean. Changes in aridity in southern Europe which has a Mediterranean climate could lead to even greater extremes of hotter summers and colder winters, which may be more unbearable for people in that region, as compared to people living in tropical regions, which experience and are better adapted to high temperatures for most of the year. This might prompt greater migration amongst Southern Europeans as comapred to the rest of the world. For South Asia, the arid conditions exacerbate water scarcity problems, leading to unstable drinkable water supply for survival, as well as for agriculture, which is a major economic activity in South Asia. This may hence prompt individuals to relocate, in search of areas with better water security.
+
+
+Lastly, for Fig.3, for Africa & Middle East, East Asia & Pacific, South America and Southern Europe, migration impacts are higher for SPEI12 than SPEI03. This suggests that individuals tend to decide to migrate after a year of high aridity and drought, not as much after a shorter period of three months. This might reflect how migration does not take place immediately after the onset of extreme arid conditions, but after a longer period of time. A reason could be that relocation comes with a myriad of drawbacks, such as having to find new employment, housing, and potentially leaving one's family and or community behind. Therefore it takes ample time to consider to make the decision to migrate. 
+
+### **Conclusion**
+To conclude, educational level and country's level of development does impact migration responses. Moreover, Southern Europe, South Asia and South America have the greatest migration impact as a result of Aridity. Lastly, we find that migration impacts are greater in an SPEI12 scenario, highlighting the long-term impacts of aridity and frequent droughts on migration decisions.
+
+
+### **References**
+
+Beguería, S., Latorre, B., Reig, F., & Vicente-Serrano, S. M. (n.d.). About the Spei. Information SPEI, The Standardised Precipitation-Evapotranspiration Index. https://spei.csic.es/home.html 
+
+Hoffmann, R., Abel, G., Malpede, M., Muttarak, R., & Percoco, M. (2024). Drought and aridity influence internal migration worldwide. Nature Climate Change, 14(12), 1245–1253. https://doi.org/10.1038/s41558-024-02165-1 
+
+
+
